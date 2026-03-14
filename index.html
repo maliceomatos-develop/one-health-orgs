@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>One Health Organizations</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; }
+        
+        /* Header with Title */
+        #map-header { 
+            background: white; 
+            border-bottom: 3px solid #BB0000; 
+            padding: 12px 40px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #main-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+        }
+        
+        #controls { background: white; border-bottom: 1px solid #e5e7eb; padding: 12px 40px; }
+        .filter-group { margin-bottom: 8px; }
+        .filter-label { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; display: block; }
+        .filter-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+        .filter-btn { padding: 5px 12px; border-radius: 6px; border: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .filter-btn.active { background: #BB0000; color: white; box-shadow: 0 2px 4px rgba(187, 0, 0, 0.3); }
+        .filter-btn:not(.active) { background: #f3f4f6; color: #374151; }
+        .filter-btn:not(.active):hover { background: #e5e7eb; }
+        .reset-btn { background: #BB0000 !important; color: white !important; margin-left: auto; }
+        .reset-btn:hover { background: #990000 !important; }
+        
+        #map-container { position: relative; }
+        #map { height: calc(100vh - 180px); min-height: 500px; }
+        
+        /* Professional North Arrow */
+        .north-arrow-container {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            background: white;
+            border: 2px solid #374151;
+            border-radius: 50%;
+            width: 70px;
+            height: 70px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+            z-index: 1000;
+        }
+        .north-arrow-svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        #footer { background: white; border-top: 1px solid #e5e7eb; padding: 12px 40px; font-size: 12px; color: #6b7280; display: flex; justify-content: space-between; }
+        
+        /* Popup styles */
+        .leaflet-popup-content-wrapper { border-radius: 8px; max-height: 500px; overflow-y: auto; }
+        .leaflet-popup-content { margin: 16px; min-width: 300px; max-width: 400px; }
+        .org-card { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+        .org-card:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .org-title { font-weight: 700; font-size: 16px; color: #111827; margin-bottom: 12px; line-height: 1.4; }
+        .org-field { margin-bottom: 8px; font-size: 13px; }
+        .org-label { font-weight: 600; color: #374151; display: inline; }
+        .org-value { color: #6b7280; display: inline; }
+        .org-link { color: #2563eb; text-decoration: none; word-break: break-all; }
+        .org-link:hover { text-decoration: underline; }
+        .multi-org-header { background: #f3f4f6; padding: 10px 12px; margin: -16px -16px 16px -16px; border-radius: 8px 8px 0 0; font-weight: 600; color: #374151; font-size: 14px; }
+        
+        /* Marker cluster styles */
+        .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background-color: rgba(187, 0, 0, 0.2); }
+        .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div { background-color: #BB0000; color: white; font-weight: 700; }
+        
+        /* Scale bar styling */
+        .leaflet-control-scale { background: white; padding: 5px 10px; border: 2px solid #374151; border-radius: 4px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <!-- Header with Title -->
+    <div id="map-header">
+        <div id="main-title">One Health Organizations</div>
+    </div>
+    
+    <div id="controls">
+        <div class="filter-group">
+            <span class="filter-label">Filter by Setting:</span>
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterBySetting('all')" id="setting-all">All (106)</button>
+                <button class="filter-btn" onclick="filterBySetting('Academia')" id="setting-academia">Academia</button>
+                <button class="filter-btn" onclick="filterBySetting('For-Profit')" id="setting-forprofit">For-Profit</button>
+                <button class="filter-btn" onclick="filterBySetting('Governmental')" id="setting-governmental">Governmental</button>
+                <button class="filter-btn" onclick="filterBySetting('Intergovernmental')" id="setting-intergovernmental">Intergovernmental</button>
+                <button class="filter-btn" onclick="filterBySetting('Non-Profit')" id="setting-nonprofit">Non-Profit</button>
+            </div>
+        </div>
+        
+        <div class="filter-group">
+            <span class="filter-label">Filter by Geographical Span:</span>
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterBySpan('all')" id="span-all">All (106)</button>
+                <button class="filter-btn" onclick="filterBySpan('Local')" id="span-local">Local</button>
+                <button class="filter-btn" onclick="filterBySpan('State')" id="span-state">State</button>
+                <button class="filter-btn" onclick="filterBySpan('National')" id="span-national">National</button>
+                <button class="filter-btn" onclick="filterBySpan('International')" id="span-international">International</button>
+                <button class="filter-btn reset-btn" onclick="resetFilters()">Reset All Filters</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="map-container">
+        <div id="map"></div>
+        
+        <!-- Professional North Arrow -->
+        <div class="north-arrow-container">
+            <svg class="north-arrow-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <!-- North pointing triangle (top) -->
+                <polygon points="50,15 35,45 50,40 65,45" fill="#DC2626" stroke="#374151" stroke-width="1.5"/>
+                <!-- South pointing triangle (bottom) -->
+                <polygon points="50,85 35,55 50,60 65,55" fill="#9CA3AF" stroke="#374151" stroke-width="1.5"/>
+                <!-- Center circle -->
+                <circle cx="50" cy="50" r="8" fill="white" stroke="#374151" stroke-width="2"/>
+                <circle cx="50" cy="50" r="3" fill="#374151"/>
+                <!-- Cardinal direction labels -->
+                <text x="50" y="12" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#374151">N</text>
+                <text x="50" y="95" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="#6B7280">S</text>
+            </svg>
+        </div>
+    </div>
+    
+    <div id="footer">
+        <span>© OpenStreetMap contributors • Click markers for details • Clustered markers show multiple organizations</span>
+        <span id="count">106 of 106 locations shown</span>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script>
+const locations = [
+  {"name": "USC Wrigley Institute for Environmental Studies", "parent": "University of Southern California", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://dornsife.usc.edu/wrigley/research/", "lat": 34.0224, "lng": -118.2851},
+  {"name": "U Wash Center for One Health Research", "parent": "University of Washington", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://cohr.deohs.washington.edu/", "lat": 47.6553, "lng": -122.3035},
+  {"name": "Tufts Wildlife Clinic", "parent": "Tufts University", "setting": "Academia", "geographical_span": "National", "nature": "Other", "website": "https://vet.tufts.edu/tufts-wildlife-clinic/about/doctors-staff", "lat": 42.2251, "lng": -71.6856},
+  {"name": "One Health Institute University of California Davis", "parent": "University of California Davis", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://ohi.vetmed.ucdavis.edu/", "lat": 38.5382, "lng": -121.7617},
+  {"name": "Washington State University Paul Allen School for Global Health", "parent": "Washington State University", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://wsu.wd5.myworkdayjobs.com/en-US/WSU_Jobs/?q=veterinary+medicine", "lat": 46.7298, "lng": -117.1817},
+  {"name": "Colorado State University One Health Institute", "parent": "Colorado State University", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://onehealth.colostate.edu/", "lat": 40.5853, "lng": -105.0844},
+  {"name": "Texas Tech University Institute for One Health Innovation", "parent": "Texas Tech University", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://www.depts.ttu.edu/onehealth/", "lat": 33.5779, "lng": -101.8552},
+  {"name": "University of Texas Medical Branch-Galveston (UTMB One Health)", "parent": "University of Texas Medical Branch", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://www.utmb.edu/one-health/jobs", "lat": 29.3013, "lng": -94.7977},
+  {"name": "Oklahoma State University One Health Innovation Lab", "parent": "Oklahoma State University", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://news.okstate.edu/magazines/state-magazine/articles/2024/winter/one_health_innovation_lab_provides_hub_for_scientists_researchers_and_businesses.html", "lat": 36.1156, "lng": -97.0584},
+  {"name": "Center for Emerging Infectious Diseases (CEID) University of Iowa", "parent": "University of Iowa", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://ceid.public-health.uiowa.edu/", "lat": 41.6611, "lng": -91.5302},
+  {"name": "Global One Health Initiative Ohio State University (GOHI)", "parent": "Ohio State University", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://oia.osu.edu/global-one-health-initiative", "lat": 39.9612, "lng": -82.9988},
+  {"name": "Center for Animal and Human Health in Appalachia (CAHA) Lincoln Memorial U", "parent": "Lincoln Memorial University", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://www.lmunet.edu/college-of-veterinary-medicine/about-cvm/research/research-centers/caha", "lat": 36.5834, "lng": -83.6563},
+  {"name": "University of Tennessee One Health Initiative", "parent": "University of Tennessee", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://onehealth.tennessee.edu/", "lat": 35.9606, "lng": -83.9207},
+  {"name": "Georgia Southern University Institute for Health Logistics and Analytics", "parent": "Georgia Southern University", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://www.georgiasouthern.edu/research/centers/health-logistics-analytics", "lat": 32.4488, "lng": -81.7831},
+  {"name": "Center for Emerging Zoonotic and Arthropod-borne Pathogens (CEZAP)", "parent": "Virginia Tech", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://infectiousdisease.fralinlifesci.vt.edu/", "lat": 37.2296, "lng": -80.4139},
+  {"name": "One Health Microbiome Center (OHMC) Huck Institute Pennsylvania State University", "parent": "Pennsylvania State University", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://www.huck.psu.edu/institutes-and-centers/microbiome-center/people/staff", "lat": 40.7934, "lng": -77.86},
+  {"name": "Johns Hopkins University One Health Laboratory - Bloomberg School of Public Health", "parent": "Johns Hopkins University", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://publichealth.jhu.edu/departments/environmental-health-and-engineering/research-and-practice/faculty-research-interests/one-health-laboratory-at-johns-hopkins-university", "lat": 39.2971, "lng": -76.5929},
+  {"name": "One Health Center of Excellence University of Florida", "parent": "University of Florida", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://onehealth.phhp.ufl.edu/", "lat": 29.6516, "lng": -82.3248},
+  {"name": "Kibale EcoHealth Project", "parent": "Multiple Universities", "setting": "Academia", "geographical_span": "International", "nature": "Research Institution", "website": "https://kibaleecohealth.wisc.edu/", "lat": 43.0731, "lng": -89.4012},
+  {"name": "University of Idaho Institute for Interdisciplinary Data Sciences and Computational One Health", "parent": "University of Idaho", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://www.iids.uidaho.edu/onehealth.php", "lat": 46.7324, "lng": -117.0002},
+  {"name": "Nebraska One Health and OH Lab Group University of Nebraska-Lincoln", "parent": "University of Nebraska-Lincoln", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://nebraskaonehealth.unl.edu/", "lat": 40.8136, "lng": -96.7026},
+  {"name": "University of Missouri School of Medicine One Health BioRepository", "parent": "University of Missouri", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://medicine.missouri.edu/centers-institutes-labs/mizzou-onehealth-biorepository", "lat": 38.9517, "lng": -92.3341},
+  {"name": "One Health at the University of Georgia", "parent": "University of Georgia", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://vet.uga.edu/research/research-centers/precision-one-health/", "lat": 33.9519, "lng": -83.3576},
+  {"name": "Duke Comparative Oncology Group", "parent": "Duke University", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://sites.duke.edu/comparativeoncology/our-team/", "lat": 35.994, "lng": -78.8986},
+  {"name": "Horizon Solutions Yale University", "parent": "Yale University", "setting": "Academia", "geographical_span": "National", "nature": "Research Institution", "website": "https://www.solutions-site.org/", "lat": 41.3083, "lng": -72.9279},
+  {"name": "The Ending Pandemics Academy", "parent": "University of Arizona", "setting": "Academia", "geographical_span": "International", "nature": "Other", "website": "https://endingpandemicsacademy.arizona.edu/", "lat": 32.2226, "lng": -110.9747},
+  {"name": "AHEAD (Animal & Human Health for the Environment and Development)", "parent": "Cornell University", "setting": "Academia", "geographical_span": "International", "nature": "Collaborative/Network", "website": "https://wcs-ahead.org/", "lat": 40.8448, "lng": -73.8648},
+  {"name": "Battelle", "parent": "", "setting": "For-Profit", "geographical_span": "International", "nature": "Private Company", "website": "https://jobs.battelle.org/us/en/home?_gl=1*sutreg*_gcl_au*NTUzNzQyMTc1LjE3NzI4MjI1ODA.*_ga*NjMzNzYzNDYxLjE3NzI4MjI1ODE.*_ga_STK7503CND*czE3NzI4MjI1ODEkbzEkZzEkdDE3NzI4MjI1OTIkajQ5JGwwJGg3MTc0NzA4NTA.", "lat": 39.9995, "lng": -83.0367},
+  {"name": "One Life Epi Solutions (Mission-centric Social Enterprise)", "parent": "", "setting": "For-Profit", "geographical_span": "International", "nature": "Private Company", "website": "https://www.onelifeepisolutions.com/meet-our-public-health-team", "lat": 33.4484, "lng": -112.074},
+  {"name": "CEVA Animal Health", "parent": "", "setting": "For-Profit", "geographical_span": "International", "nature": "Private Company", "website": "https://ceva.csod.com/ux/ats/careersite/3/home?c=ceva", "lat": 38.9536, "lng": -94.7336},
+  {"name": "Elanco", "parent": "", "setting": "For-Profit", "geographical_span": "International", "nature": "Private Company", "website": "https://elanco.wd5.myworkdayjobs.com/External_Career", "lat": 39.7856, "lng": -85.7697},
+  {"name": "Galaxy Diagnostics Inc.", "parent": "", "setting": "For-Profit", "geographical_span": "National", "nature": "Private Company", "website": "https://www.galaxydx.com/about-us/meet-the-team/", "lat": 35.8235, "lng": -78.8253},
+  {"name": "Merck Manuals (Merck & Co. Inc. / Merck Sharp & Dohme LLC)", "parent": "", "setting": "For-Profit", "geographical_span": "International", "nature": "Private Company", "website": "https://jobs.merck.com/us/em", "lat": 40.6768, "lng": -74.2829},
+  {"name": "Zoetis", "parent": "", "setting": "For-Profit", "geographical_span": "International", "nature": "Private Company", "website": "https://zoetis.wd5.myworkdayjobs.com/zoetis/jobs", "lat": 40.8579, "lng": -74.4099},
+  {"name": "Development Alternatives Incorporated (DAI) LLC", "parent": "", "setting": "For-Profit", "geographical_span": "International", "nature": "Private Company", "website": "https://phf.tbe.taleo.net/phf04/ats/careers/v2/jobSearch?act=redirectCwsV2&cws=48&org=DAINC", "lat": 38.9807, "lng": -77.0947},
+  {"name": "BME Strategies", "parent": "", "setting": "For-Profit", "geographical_span": "National", "nature": "Private Company", "website": "https://bmestrategies.com/careers/", "lat": 42.3736, "lng": -71.1097},
+  {"name": "Aequor Inc", "parent": "", "setting": "For-Profit", "geographical_span": "National", "nature": "Private Company", "website": "https://aequorinc.com/services", "lat": 32.7157, "lng": -117.1611},
+  {"name": "National Institute of Environmental Health Sciences", "parent": "NIH", "setting": "Governmental", "geographical_span": "National", "nature": "Research Institution", "website": "https://www.niehs.nih.gov/careers/jobs", "lat": 35.9049, "lng": -78.8774},
+  {"name": "US Fish and Wildlife Service", "parent": "Department of the Interior", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.fws.gov/job-openings", "lat": 38.8648, "lng": -77.1494},
+  {"name": "Bureau of Land Management Wyoming", "parent": "Department of the Interior", "setting": "Governmental", "geographical_span": "State", "nature": "Government Agency", "website": "https://www.blm.gov/careers", "lat": 41.14, "lng": -104.8202},
+  {"name": "National Institutes of Health (NIH)", "parent": "HHS", "setting": "Governmental", "geographical_span": "National", "nature": "Research Institution", "website": "https://hr.nih.gov/careers/open-positions", "lat": 39.0001, "lng": -77.1067},
+  {"name": "U.S. Geological Survey (USGS)", "parent": "Department of the Interior", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://usgs.usajobs.gov/search/results/?a=IN08&s=relevance&sd=asc&p=1", "lat": 38.9475, "lng": -77.3772},
+  {"name": "National Park Service (NPS)", "parent": "Department of the Interior", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.usajobs.gov/Search?k=%27national%20park%20service%27", "lat": 38.8938, "lng": -77.0402},
+  {"name": "National Oceanic and Atmospheric Administration (NOAA)", "parent": "Department of Commerce", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.noaa.gov/acquisition-grants", "lat": 38.8923, "lng": -77.0281},
+  {"name": "Office of Health Security (OHS)", "parent": "HHS", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.dhs.gov/office-health-security", "lat": 38.9072, "lng": -77.0369},
+  {"name": "Bureau of Oceans and International Environmental and Scientific Affairs Office of Conservation and Water (OES/ECW)", "parent": "Department of State", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.state.gov/bureaus-offices/under-secretary-for-economic-affairs/bureau-of-oceans-and-international-environmental-and-scientific-affairs/office-of-conservation-and-water", "lat": 38.8945, "lng": -77.0403},
+  {"name": "Environmental Protection Agency (EPA)", "parent": "", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.epa.gov/aboutepa/epa-organization-chart", "lat": 38.8937, "lng": -77.0294},
+  {"name": "National Institute of Antimicrobial Resistance Research and Education (NIAMRRE)", "parent": "NIH", "setting": "Governmental", "geographical_span": "National", "nature": "Research Institution", "website": "https://www.niamrre.org/home/about/staff/", "lat": 42.0308, "lng": -93.6319},
+  {"name": "Missouri Department of Conservation One Health Initiative", "parent": "", "setting": "Governmental", "geographical_span": "State", "nature": "Government Agency", "website": "https://research.mdc.mo.gov/project/health-benefits-nature", "lat": 38.5767, "lng": -92.2068},
+  {"name": "APHIS Veterinary Services (VS)", "parent": "USDA", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.usajobs.gov/Search/Results?a=AG34&p=1", "lat": 38.9626, "lng": -76.9311},
+  {"name": "APHIS Wildlife Services (WS)", "parent": "USDA", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.usajobs.gov/Search/Results?a=AG34&p=1", "lat": 38.9626, "lng": -76.9311},
+  {"name": "APHIS Animal Care (AC)", "parent": "USDA", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.usajobs.gov/Search/Results?a=AG34&p=1", "lat": 40.5853, "lng": -105.0844},
+  {"name": "Food Safety and Inspection Service (FSIS)", "parent": "USDA", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.fsis.usda.gov/applynow", "lat": 38.9072, "lng": -77.0369},
+  {"name": "Agricultural Research Service (ARS)", "parent": "USDA", "setting": "Governmental", "geographical_span": "National", "nature": "Research Institution", "website": "https://arscareers.usajobs.gov/search/results/?a=AG03&p=1", "lat": 39.0346, "lng": -76.9075},
+  {"name": "APHIS, NVSL, Foreign Animal Disease Diagnostic Laboratory (FADDL)", "parent": "USDA", "setting": "Governmental", "geographical_span": "National", "nature": "Research Institution", "website": "https://www.usajobs.gov/Search/Results?a=AG34&p=1", "lat": 40.9787, "lng": -72.2176},
+  {"name": "National Institute of Food and Agriculture (NIFA)", "parent": "USDA", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.nifa.usda.gov/", "lat": 39.0997, "lng": -94.5786},
+  {"name": "U.S. Food and Drug Administration (FDA) One Health Steering Committee", "parent": "FDA, HHS", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.fda.gov/about-fda/jobs-and-training-fda", "lat": 39.0273, "lng": -77.0116},
+  {"name": "U.S. Centers for Disease Control and Prevention (CDC) One Health Office", "parent": "CDC, HHS", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.cdc.gov/one-health/php/about/index.html#cdc_program_profile_how_it-how-we-operate", "lat": 33.7983, "lng": -84.3265},
+  {"name": "Nebraska Game and Parks Commission (DNR)", "parent": "", "setting": "Governmental", "geographical_span": "State", "nature": "Government Agency", "website": "https://son.wd108.myworkdayjobs.com/NebraskaStateCareers?CF_LRV_Agency__mas-impl__Extended=0ec7c2e462594d2d88d2793611defb99", "lat": 40.8358, "lng": -96.6509},
+  {"name": "Administration for Strategic Preparedness and Response (ASPR)", "parent": "HHS", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://aspr.hhs.gov/careers/Pages/default.aspx", "lat": 38.8876, "lng": -77.0151},
+  {"name": "Indian Affairs (IA)", "parent": "Department of the Interior", "setting": "Governmental", "geographical_span": "National", "nature": "Government Agency", "website": "https://www.bia.gov/as-ia/ohcm", "lat": 38.8938, "lng": -77.0402},
+  {"name": "World Bank", "parent": "World Bank Group", "setting": "Intergovernmental", "geographical_span": "International", "nature": "International Organization", "website": "https://worldbankgroup.csod.com/ux/ats/careersite/1/home?c=worldbankgroup", "lat": 38.8995, "lng": -77.0426},
+  {"name": "UNDP", "parent": "United Nations", "setting": "Intergovernmental", "geographical_span": "International", "nature": "International Organization", "website": "https://www.undp.org/careers", "lat": 40.7128, "lng": -74.006},
+  {"name": "PAHO", "parent": "WHO", "setting": "Intergovernmental", "geographical_span": "International", "nature": "International Organization", "website": "https://www.paho.org/en/careers-paho", "lat": 38.8956, "lng": -77.0521},
+  {"name": "Gates Foundation", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Foundation", "website": "https://gatesfoundation.wd1.myworkdayjobs.com/Gates?source=gatesfoundation.org", "lat": 47.6236, "lng": -122.3488},
+  {"name": "Carter Center", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Foundation", "website": "https://euvcareers-emory.icims.com/jobs/search?ss=1&searchKeyword=The+Carter+Center&searchRelation=keyword_all&mobile=false&width=1540&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240", "lat": 33.7676, "lng": -84.3497},
+  {"name": "US National Pork Board (Pork CheckOff)", "parent": "", "setting": "Non-Profit", "geographical_span": "National", "nature": "Professional Association", "website": "https://porkcheckoff.org/about/careers/", "lat": 41.6035, "lng": -93.7844},
+  {"name": "Knights Landing One Health Center / Clinics", "parent": "", "setting": "Non-Profit", "geographical_span": "Local", "nature": "Other", "website": "https://knightslandingonehealth.com/", "lat": 38.8085, "lng": -121.713},
+  {"name": "Global Alliance for Rabies Control (GARC)", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Collaborative/Network", "website": "https://rabiesalliance.org/about/our-people", "lat": 39.1836, "lng": -96.5717},
+  {"name": "American Association of Swine Veterinarians", "parent": "", "setting": "Non-Profit", "geographical_span": "National", "nature": "Professional Association", "website": "https://www.aasv.org/", "lat": 41.8389, "lng": -94.1072},
+  {"name": "Heifer International", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Other", "website": "https://jobs.jobvite.com/heifer", "lat": 34.7465, "lng": -92.2896},
+  {"name": "Institute for Conservation Medicine St. Louis Zoo", "parent": "", "setting": "Non-Profit", "geographical_span": "National", "nature": "Research Institution", "website": "https://stlzoo.org/employment", "lat": 38.6346, "lng": -90.2924},
+  {"name": "Georgia Aquarium", "parent": "", "setting": "Non-Profit", "geographical_span": "State", "nature": "Zoo/Aquarium", "website": "https://recruiting.ultipro.com/GEO1006GEORA/JobBoard/b0c027ed-af9a-4950-8803-c3356e7a2cad/?q=&o=postedDateDesc", "lat": 33.7634, "lng": -84.3948},
+  {"name": "ORCA Ocean Research and Conservation Association", "parent": "", "setting": "Non-Profit", "geographical_span": "National", "nature": "Other", "website": "https://www.teamorca.org/board-staff/", "lat": 27.6386, "lng": -80.3973},
+  {"name": "One Health Research Foundation", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Foundation", "website": "https://ohresearchfoundation.org/ohrf-appointees/", "lat": 25.9873, "lng": -80.3322},
+  {"name": "One Health Organization-Ohio", "parent": "", "setting": "Non-Profit", "geographical_span": "State", "nature": "Collaborative/Network", "website": "https://www.onehealth.org/", "lat": 41.4993, "lng": -81.6944},
+  {"name": "Family Health International - FHI 360", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Other", "website": "https://fhi.wd1.myworkdayjobs.com/pt-BR/FHI_360_External_Career_Portal", "lat": 35.994, "lng": -78.9074},
+  {"name": "Research Triangle Institute International (RTI International)", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Research Institution", "website": "https://careers.rti.org/jobs?page=1&location=United%20States&stretch=10&stretchUnit=MILES", "lat": 35.9024, "lng": -78.8532},
+  {"name": "International Society for Infectious Diseases (ISID)", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Professional Association", "website": "https://careercenter.isid.org/?msessid=bLr5iwb2PYhWwmr", "lat": 42.3601, "lng": -71.0589},
+  {"name": "MRI Global (formerly Midwestern Research Institute)", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Research Institution", "website": "https://jobs.dayforcehcm.com/mriglobal/CANDIDATEPORTAL", "lat": 39.0473, "lng": -94.5786},
+  {"name": "One Health Trust (Formerly CDDEP)", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Other", "website": "https://onehealthtrust.org/who-we-are/our-team/", "lat": 38.9072, "lng": -77.0369},
+  {"name": "American Public Health Association One Health Section", "parent": "", "setting": "Non-Profit", "geographical_span": "National", "nature": "Professional Association", "website": "https://www.apha.org/", "lat": 38.9008, "lng": -77.0227},
+  {"name": "Zoo New England One Health Program", "parent": "", "setting": "Non-Profit", "geographical_span": "State", "nature": "Zoo/Aquarium", "website": "https://www.zoonewengland.org/protect/inside-our-zoos/one-health-program/", "lat": 42.3019, "lng": -71.0858},
+  {"name": "CHAI (Clinton Health Access Initiative)", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Foundation", "website": "https://careers-chai.icims.com/jobs/intro?utm_source=clintonhealthaccessorg&utm_medium=button&utm_campaign=join_our_team&mobile=false&width=1150&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240", "lat": 42.3282, "lng": -71.0565},
+  {"name": "Food Systems for the Future", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Other", "website": "https://www.fsfinstitute.net/our-team", "lat": 41.8781, "lng": -87.6298},
+  {"name": "The END Fund", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Foundation", "website": "https://endfund.org/impact-stories/?_topics=employee-spotlight", "lat": 40.7506, "lng": -73.9779},
+  {"name": "CDC Foundation", "parent": "CDC (affiliated)", "setting": "Non-Profit", "geographical_span": "National", "nature": "Foundation", "website": "https://www.cdcfoundation.org/jobs", "lat": 33.7701, "lng": -84.3862},
+  {"name": "Nature.Health.Global", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Other", "website": "https://naturehealthglobal.org/nhg-scientists-and-staff/", "lat": 41.1012, "lng": -73.9457},
+  {"name": "Smithsonian Migratory Bird Center", "parent": "Smithsonian Institution", "setting": "Non-Profit", "geographical_span": "National", "nature": "Research Institution", "website": "https://nationalzoo.si.edu/careers", "lat": 38.9297, "lng": -77.0502},
+  {"name": "U.S. Smithsonian Museum of Natural History", "parent": "Smithsonian Institution", "setting": "Non-Profit", "geographical_span": "National", "nature": "Museum", "website": "https://www.si.edu/ohr/jobs", "lat": 38.8913, "lng": -77.0261},
+  {"name": "Minneapolis Zoo", "parent": "", "setting": "Non-Profit", "geographical_span": "Local", "nature": "Zoo/Aquarium", "website": "https://mnzoo.org/us/job-opportunities/job-profiles/", "lat": 44.7441, "lng": -93.2027},
+  {"name": "Frost Museum of Science", "parent": "", "setting": "Non-Profit", "geographical_span": "Local", "nature": "Museum", "website": "https://www.frostscience.org/careers/", "lat": 25.7854, "lng": -80.187},
+  {"name": "Environmental Defense Fund", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Other", "website": "https://www.edf.org/jobs", "lat": 40.7398, "lng": -73.9876},
+  {"name": "Pet Partners (Formerly Delta Society)", "parent": "", "setting": "Non-Profit", "geographical_span": "National", "nature": "Other", "website": "https://petpartners.org/about/careers/?_gl=1*1uxwmul*_up*MQ..*_ga*MTY0Mjk0NDQ1NC4xNzcyODMzMjc1*_ga_EBPVFRN2WL*czE3NzI4MzMyNzQkbzEkZzAkdDE3NzI4MzMyNzQkajYwJGwwJGgxMTY3NzU2Mjgw", "lat": 47.6149, "lng": -122.1872},
+  {"name": "Aspen Institute Health Medicine and Society", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Other", "website": "https://healthmedicineandsociety.org/", "lat": 38.9067, "lng": -77.05},
+  {"name": "U.S. Animal Health Association (USAHA)", "parent": "", "setting": "Non-Profit", "geographical_span": "National", "nature": "Professional Association", "website": "https://usaha.org/", "lat": 39.768, "lng": -94.8469},
+  {"name": "American Veterinary Medical Association (AVMA)", "parent": "", "setting": "Non-Profit", "geographical_span": "National", "nature": "Professional Association", "website": "https://www.avma.org/", "lat": 42.0333, "lng": -88.0334},
+  {"name": "Farm Foundation", "parent": "", "setting": "Non-Profit", "geographical_span": "National", "nature": "Foundation", "website": "https://www.farmfoundation.org/", "lat": 41.8406, "lng": -87.9395},
+  {"name": "One Health Commission (OHC)", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Collaborative/Network", "website": "https://www.onehealthcommission.org/", "lat": 38.9024, "lng": -77.0454},
+  {"name": "Wildlife Conservation Society", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Other", "website": "https://www.wcs.org/about-us/careers", "lat": 40.8506, "lng": -73.8776},
+  {"name": "American Society for Tropical Medicine and Hygiene (ASTMH)", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Professional Association", "website": "https://www.astmh.org/", "lat": 38.9307, "lng": -77.22},
+  {"name": "Americares", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Other", "website": "https://www.americares.org/take-action/jobs/#1", "lat": 41.0534, "lng": -73.5387},
+  {"name": "Evidence Action", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Other", "website": "https://www.evidenceaction.org/about/careers#block-workable", "lat": 38.9057, "lng": -77.043},
+  {"name": "Fairtrade America", "parent": "", "setting": "Non-Profit", "geographical_span": "National", "nature": "Other", "website": "https://fairtrade-america.breezy.hr/", "lat": 38.9029, "lng": -77.0322},
+  {"name": "Seed Global Health", "parent": "", "setting": "Non-Profit", "geographical_span": "International", "nature": "Other", "website": "https://seedglobalhealth.org/the-latest/career-opportunities/", "lat": 42.3527, "lng": -71.0508},
+  {"name": "Health Readiness Policy and Oversight (HRP&O)-Office of the Assistant Secretary of Defense for Health Affairs (OASD[HA])", "parent": "Department of Defense", "setting": "Governmental", "geographical_span": "National", "nature": "Military", "website": "https://www.health.mil/About-MHS/MHS-Elements/HRPO", "lat": 38.9072, "lng": -77.0369}
+];
+
+
+
+
+        let map, markerClusterGroup, currentSettingFilter = 'all', currentSpanFilter = 'all';
+
+        const settingColors = {
+            'Academia': '#3B82F6',
+            'For-Profit': '#10B981',
+            'Governmental': '#DC2626',
+            'Intergovernmental': '#F59E0B',
+            'Non-Profit': '#8B5CF6'
+        };
+
+        map = L.map('map').setView([39.8283, -98.5795], 5);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        L.control.scale({
+            position: 'bottomleft',
+            imperial: true,
+            metric: true
+        }).addTo(map);
+
+        function createOrgCard(loc) {
+            const websiteHtml = loc.website ? 
+                `<div class="org-field"><span class="org-label">Website:</span> <a href="${loc.website}" target="_blank" class="org-link">${loc.website}</a></div>` 
+                : '';
+            
+            return `
+                <div class="org-card">
+                    <div class="org-title">${loc.name}</div>
+                    <div class="org-field"><span class="org-label">Parent Organization:</span> <span class="org-value">${loc.parent}</span></div>
+                    <div class="org-field"><span class="org-label">Setting:</span> <span class="org-value">${loc.setting}</span></div>
+                    <div class="org-field"><span class="org-label">Geographical Span:</span> <span class="org-value">${loc.geographical_span}</span></div>
+                    <div class="org-field"><span class="org-label">Nature:</span> <span class="org-value">${loc.nature}</span></div>
+                    ${websiteHtml}
+                </div>
+            `;
+        }
+
+        function createMarkers() {
+            if (markerClusterGroup) {
+                map.removeLayer(markerClusterGroup);
+            }
+            
+            markerClusterGroup = L.markerClusterGroup({
+                maxClusterRadius: 50,
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,
+                zoomToBoundsOnClick: true
+            });
+            
+            const filtered = locations.filter(loc => {
+                const settingMatch = currentSettingFilter === 'all' || loc.setting === currentSettingFilter;
+                const spanMatch = currentSpanFilter === 'all' || loc.geographical_span === currentSpanFilter;
+                return settingMatch && spanMatch;
+            });
+
+            const coordGroups = {};
+            filtered.forEach(loc => {
+                const key = `${loc.lat.toFixed(4)},${loc.lng.toFixed(4)}`;
+                if (!coordGroups[key]) {
+                    coordGroups[key] = [];
+                }
+                coordGroups[key].push(loc);
+            });
+
+            Object.entries(coordGroups).forEach(([coordKey, orgs]) => {
+                const firstOrg = orgs[0];
+                const color = settingColors[firstOrg.setting] || '#6B7280';
+                
+                const icon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="width: 18px; height: 18px; background-color: ${color}; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>`,
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9]
+                });
+
+                const marker = L.marker([firstOrg.lat, firstOrg.lng], { icon });
+                
+                let popupContent = '';
+                if (orgs.length > 1) {
+                    popupContent = `<div class="multi-org-header">${orgs.length} Organizations at this Location</div>`;
+                }
+                popupContent += orgs.map(org => createOrgCard(org)).join('');
+                
+                marker.bindPopup(popupContent, { 
+                    maxWidth: 400,
+                    maxHeight: 450
+                });
+                
+                markerClusterGroup.addLayer(marker);
+            });
+
+            map.addLayer(markerClusterGroup);
+            
+            document.getElementById('count').textContent = `${filtered.length} of ${locations.length} locations shown`;
+            updateButtonCounts();
+        }
+
+        function updateButtonCounts() {
+            const settingCounts = {};
+            locations.forEach(loc => {
+                settingCounts[loc.setting] = (settingCounts[loc.setting] || 0) + 1;
+            });
+            
+            document.getElementById('setting-all').textContent = `All (${locations.length})`;
+            document.getElementById('setting-academia').textContent = `Academia (${settingCounts['Academia'] || 0})`;
+            document.getElementById('setting-forprofit').textContent = `For-Profit (${settingCounts['For-Profit'] || 0})`;
+            document.getElementById('setting-governmental').textContent = `Governmental (${settingCounts['Governmental'] || 0})`;
+            document.getElementById('setting-intergovernmental').textContent = `Intergovernmental (${settingCounts['Intergovernmental'] || 0})`;
+            document.getElementById('setting-nonprofit').textContent = `Non-Profit (${settingCounts['Non-Profit'] || 0})`;
+            
+            const spanCounts = {};
+            locations.forEach(loc => {
+                spanCounts[loc.geographical_span] = (spanCounts[loc.geographical_span] || 0) + 1;
+            });
+            
+            document.getElementById('span-all').textContent = `All (${locations.length})`;
+            document.getElementById('span-local').textContent = `Local (${spanCounts['Local'] || 0})`;
+            document.getElementById('span-state').textContent = `State (${spanCounts['State'] || 0})`;
+            document.getElementById('span-national').textContent = `National (${spanCounts['National'] || 0})`;
+            document.getElementById('span-international').textContent = `International (${spanCounts['International'] || 0})`;
+        }
+
+        function filterBySetting(setting) {
+            currentSettingFilter = setting;
+            
+            document.querySelectorAll('[id^="setting-"]').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('setting-' + (setting === 'all' ? 'all' : setting.toLowerCase().replace('-', ''))).classList.add('active');
+            
+            createMarkers();
+        }
+
+        function filterBySpan(span) {
+            currentSpanFilter = span;
+            
+            document.querySelectorAll('[id^="span-"]').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('span-' + (span === 'all' ? 'all' : span.toLowerCase())).classList.add('active');
+            
+            createMarkers();
+        }
+
+        function resetFilters() {
+            currentSettingFilter = 'all';
+            currentSpanFilter = 'all';
+            
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('setting-all').classList.add('active');
+            document.getElementById('span-all').classList.add('active');
+            
+            map.setView([39.8283, -98.5795], 5);
+            createMarkers();
+        }
+
+        createMarkers();
+    </script>
+</body>
+</html>
