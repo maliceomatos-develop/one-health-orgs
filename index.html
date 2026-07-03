@@ -175,7 +175,6 @@
                 <button class="filter-btn active" onclick="filterByStateAgency('all')" id="stateagency-all">All</button>
                 <button class="filter-btn" onclick="filterByStateAgency('health')" id="stateagency-health">State Health Departments</button>
                 <button class="filter-btn" onclick="filterByStateAgency('agriculture')" id="stateagency-agriculture">State Departments of Agriculture</button>
-                <button class="filter-btn" onclick="filterByStateAgency('none')" id="stateagency-none">Hide All State Agencies</button>
             </div>
         </div>
     </div>
@@ -617,7 +616,8 @@ const locations = [
             }
             
             document.querySelectorAll('[id^="stateagency-"]').forEach(btn => btn.classList.remove('active'));
-            document.getElementById('stateagency-' + currentStateAgencyFilter).classList.add('active');
+            const activeBtn = document.getElementById('stateagency-' + currentStateAgencyFilter);
+            if (activeBtn) activeBtn.classList.add('active');
             
             createMarkers();
         }
