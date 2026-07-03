@@ -577,7 +577,11 @@ const locations = [
 
         function filterBySetting(setting) {
             if (setting === 'all') {
-                selectedSettings = new Set(allSettings);
+                // Toggle: if everything is currently selected, clicking All deselects everything.
+                // Otherwise, clicking All selects everything.
+                selectedSettings = (selectedSettings.size === allSettings.length) 
+                    ? new Set() 
+                    : new Set(allSettings);
             } else if (selectedSettings.size === allSettings.length) {
                 // Currently in "All" mode -> switch to just this one category
                 selectedSettings = new Set([setting]);
@@ -604,10 +608,16 @@ const locations = [
         }
 
         function filterByStateAgency(type) {
-            currentStateAgencyFilter = type;
+            if (type === 'all') {
+                // Toggle: if currently showing all state agencies, clicking All hides them.
+                // Otherwise, clicking All shows all of them.
+                currentStateAgencyFilter = (currentStateAgencyFilter === 'all') ? 'none' : 'all';
+            } else {
+                currentStateAgencyFilter = type;
+            }
             
             document.querySelectorAll('[id^="stateagency-"]').forEach(btn => btn.classList.remove('active'));
-            document.getElementById('stateagency-' + type).classList.add('active');
+            document.getElementById('stateagency-' + currentStateAgencyFilter).classList.add('active');
             
             createMarkers();
         }
