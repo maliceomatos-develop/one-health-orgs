@@ -503,15 +503,15 @@ const locations = [
             });
             
             const filtered = locations.filter(loc => {
-                const settingMatch = selectedSettings.has(loc.setting);
-                let stateAgencyMatch = true;
                 if (loc.is_state_agency) {
-                    if (currentStateAgencyFilter === 'none') stateAgencyMatch = false;
-                    else if (currentStateAgencyFilter === 'health') stateAgencyMatch = loc.nature === 'State Health Department';
-                    else if (currentStateAgencyFilter === 'agriculture') stateAgencyMatch = loc.nature === 'State Agriculture Department';
-                    // 'all' -> true
+                    // State agencies are controlled ONLY by the State Agencies filter,
+                    // independent of the Setting filter - so you can isolate just them.
+                    if (currentStateAgencyFilter === 'none') return false;
+                    if (currentStateAgencyFilter === 'health') return loc.nature === 'State Health Department';
+                    if (currentStateAgencyFilter === 'agriculture') return loc.nature === 'State Agriculture Department';
+                    return true; // 'all'
                 }
-                return settingMatch && stateAgencyMatch;
+                return selectedSettings.has(loc.setting);
             });
 
             const coordGroups = {};
@@ -583,9 +583,8 @@ const locations = [
                 selectedSettings = new Set([setting]);
             } else if (selectedSettings.has(setting)) {
                 selectedSettings.delete(setting);
-                if (selectedSettings.size === 0) {
-                    selectedSettings = new Set(allSettings); // don't allow an empty selection
-                }
+                // Empty selection is allowed - hides all non-state-agency orgs,
+                // useful for isolating just the State Agencies filter.
             } else {
                 selectedSettings.add(setting);
             }
